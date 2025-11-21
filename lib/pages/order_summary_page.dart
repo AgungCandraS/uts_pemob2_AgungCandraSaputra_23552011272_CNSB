@@ -23,20 +23,32 @@ class OrderSummaryPage extends StatelessWidget {
             );
           }
 
+          final orderCubit = context.read<OrderCubit>();
+
+          // === Perhitungan original ===
           final totalItems =
               state.fold<int>(0, (sum, item) => sum + item.quantity);
-          final totalPrice = context.read<OrderCubit>().getTotalPrice();
+
+          // subtotal = total setelah DISKON PER ITEM
+          final int subtotal = orderCubit.getTotalPrice();
+
+          // === BONUS UTS: Diskon 10% jika subtotal > 100000 ===
+          final int totalDiscount =
+              subtotal > 100000 ? (subtotal * 0.10).toInt() : 0;
+
+          // total akhir bayar
+          final int finalTotal = subtotal - totalDiscount;
 
           return Column(
             children: [
-              // Daftar produk di keranjang
+              // ===== LIST ITEM PESANAN =====
               Expanded(
                 child: ListView.builder(
                   itemCount: state.length,
                   itemBuilder: (context, index) {
                     final item = state[index];
-                    final itemPrice =
-                        item.menu.getDiscountedPrice() * item.quantity;
+                    final perItemPrice = item.menu.getDiscountedPrice();
+                    final totalItemPrice = perItemPrice * item.quantity;
 
                     return ListTile(
                       leading: Image.network(
@@ -54,9 +66,7 @@ class OrderSummaryPage extends StatelessWidget {
                           IconButton(
                             onPressed: () {
                               final newQty = item.quantity - 1;
-                              context
-                                  .read<OrderCubit>()
-                                  .updateQuantity(item.menu, newQty);
+                              orderCubit.updateQuantity(item.menu, newQty);
                             },
                             icon: const Icon(Icons.remove),
                           ),
@@ -64,32 +74,53 @@ class OrderSummaryPage extends StatelessWidget {
                           IconButton(
                             onPressed: () {
                               final newQty = item.quantity + 1;
-                              context
-                                  .read<OrderCubit>()
-                                  .updateQuantity(item.menu, newQty);
+                              orderCubit.updateQuantity(item.menu, newQty);
                             },
                             icon: const Icon(Icons.add),
                           ),
                         ],
                       ),
-                      trailing: Text('Rp $itemPrice'),
+                      trailing: Text('Rp $totalItemPrice'),
                     );
                   },
                 ),
               ),
 
-              // Total item & total harga + tombol Checkout
+              // ===== BAGIAN TOTAL =====
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Total item   : $totalItems'),
-                    Text('Total harga : Rp $totalPrice'),
+                    Text('Total item        : $totalItems'),
+                    Text('Subtotal          : Rp $subtotal'),
+
+                    // tampilkan diskon bonus jika ada
+                    if (totalDiscount > 0)
+                      Text(
+                        'Diskon 10%      : -Rp $totalDiscount',
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      'Total Bayar    : Rp $finalTotal',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
                     const SizedBox(height: 12),
+
+                    // ===== TOMBOL CHECKOUT =====
                     ElevatedButton(
                       onPressed: () {
-                        context.read<OrderCubit>().clearOrder();
+                        orderCubit.clearOrder();
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
